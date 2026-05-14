@@ -1,3 +1,44 @@
-# blog 1
+---
+title: "Sample General Research Article ssssssssssssssssssssssssssssss"
+date: "2026-05-13"
+summary: "A minimal example article showing the frontmatter + MDX rendering pipeline (GFM tables, code blocks, lists, quotes)."
+tags:
+  - "general"
+  - "workflow"
+author: "Aubrey Intelligence"
+---
 
-Chào mọi người, đây là blog đầu tiên, chủ yếu dùng để giới thiệu về hệ aubrey, ở đây chúng tôi sẽ đưa ra các phân tích và nhận định rõ ràng, đồng thời triển khai luôn những tư tưởng đó để đưa hệ aubrey phát triển.
+## Why this exists
+
+This file demonstrates the **file-based publishing** workflow:
+
+- Write in Notion
+- Export to `.md` / `.mdx`
+- Drop into `content/analyses-development/general-research/`
+- Push to GitHub → Vercel deploy → article appears on site
+
+## Lists
+
+1. First item
+2. Second item
+3. Third item
+
+## Quote
+
+> This is a blockquote to verify styling and rendering.
+
+## Code block
+
+```ts
+export function hello(name: string) {
+  return `Hello, ${name}`;
+}
+```
+
+## Table (GFM)
+
+| Field | Purpose |
+|------:|---------|
+| title | Card + page title |
+| date | Sorting + display |
+| summary | Card summary + meta description |
