@@ -13,6 +13,9 @@ type PageProps = {
   params: Promise<{ slug: string }>
 }
 
+/** Allow new MDX files after the last build until the next deploy (safe default). */
+export const dynamicParams = true
+
 export async function generateStaticParams() {
   return getAllResearchSlugs("deep-research").map((slug) => ({ slug }))
 }

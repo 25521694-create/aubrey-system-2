@@ -34,8 +34,62 @@ function isMarkdownFile(filename: string) {
   return ext === ".md" || ext === ".mdx"
 }
 
-function slugFromFilename(filename: string) {
+/** Filename stem (no extension), as stored on disk. */
+function stemFromFilename(filename: string) {
   return path.basename(filename, path.extname(filename))
+}
+
+/**
+ * URL-safe slug for routing and links. Spaces and a few reserved-ish path
+ * characters are normalized so App Router + Vercel resolve the same segment
+ * the listing links to (avoids 404s when the Notion export filename contains spaces).
+ */
+function urlSlugFromStem(stem: string): string {
+  let s = stem
+    .normalize("NFC")
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/[%#?&/\\]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+  if (!s) s = "untitled"
+  return s
+}
+
+function urlSlugFromFilename(filename: string): string {
+  return urlSlugFromStem(stemFromFilename(filename))
+}
+
+function normalizeRequestSlug(slug: string): string {
+  let s = slug
+  try {
+    s = decodeURIComponent(s)
+  } catch {
+    /* keep raw */
+  }
+  return urlSlugFromStem(s)
+}
+
+function assertUniqueUrlSlugs(filenames: string[]) {
+  const byUrl = new Map<string, string>()
+  for (const f of filenames) {
+    const u = urlSlugFromFilename(f)
+    const prev = byUrl.get(u)
+    if (prev) {
+      throw new Error(
+        `Duplicate URL slug "${u}" from files "${prev}" and "${f}". Rename one of the files (the public URL is derived from the filename).`,
+      )
+    }
+    byUrl.set(u, f)
+  }
+}
+
+function listMarkdownFiles(track: ResearchTrack): string[] {
+  const dir = getTrackDir(track)
+  if (!fs.existsSync(dir)) return []
+  const files = fs.readdirSync(dir).filter(isMarkdownFile)
+  assertUniqueUrlSlugs(files)
+  return files
 }
 
 function normalizeTags(raw: unknown): string[] {
@@ -56,24 +110,18 @@ function parseFrontmatter(track: ResearchTrack, slug: string, raw: Record<string
 }
 
 export function getAllResearchSlugs(track: ResearchTrack): string[] {
-  const dir = getTrackDir(track)
-  if (!fs.existsSync(dir)) return []
-  return fs
-    .readdirSync(dir)
-    .filter(isMarkdownFile)
-    .map(slugFromFilename)
+  return listMarkdownFiles(track)
+    .map(urlSlugFromFilename)
     .sort((a, b) => a.localeCompare(b))
 }
 
 export function getAllResearchMeta(track: ResearchTrack): ResearchArticleMeta[] {
   const dir = getTrackDir(track)
-  if (!fs.existsSync(dir)) return []
+  const files = listMarkdownFiles(track)
 
-  return fs
-    .readdirSync(dir)
-    .filter(isMarkdownFile)
+  return files
     .map((filename) => {
-      const slug = slugFromFilename(filename)
+      const slug = urlSlugFromFilename(filename)
       const fullPath = path.join(dir, filename)
       const rawFile = fs.readFileSync(fullPath, "utf8")
       const { data } = matter(rawFile)
@@ -84,17 +132,20 @@ export function getAllResearchMeta(track: ResearchTrack): ResearchArticleMeta[] 
 
 export function getResearchArticleBySlug(track: ResearchTrack, slug: string): ResearchArticle | null {
   const dir = getTrackDir(track)
-  const mdxPath = path.join(dir, `${slug}.mdx`)
-  const mdPath = path.join(dir, `${slug}.md`)
+  if (!fs.existsSync(dir)) return null
 
-  const fullPath = fs.existsSync(mdxPath) ? mdxPath : fs.existsSync(mdPath) ? mdPath : null
-  if (!fullPath) return null
+  const want = normalizeRequestSlug(slug)
+  const files = fs.readdirSync(dir).filter(isMarkdownFile)
+  const match = files.find((f) => urlSlugFromFilename(f) === want)
+  if (!match) return null
+
+  const fullPath = path.join(dir, match)
+  const urlSlug = urlSlugFromFilename(match)
 
   const rawFile = fs.readFileSync(fullPath, "utf8")
   const { data, content } = matter(rawFile)
   return {
-    meta: parseFrontmatter(track, slug, data as Record<string, unknown>),
+    meta: parseFrontmatter(track, urlSlug, data as Record<string, unknown>),
     content,
   }
 }
-
